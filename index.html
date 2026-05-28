@@ -224,7 +224,7 @@ function switchBasemap(name){
 let deckOverlay=null;
 
 function ptRadius(){return{500:300,'1km':600,'10km':5500,'25km':13000}[state.resolution]||5500;}
-function getVal(r,f){return{agb:r[2],sd:r[3],n:r[4],tc:r[5]}[f];}
+function getVal(r,f){return{agb:r[2],sd:r[3],n:r[4],tc:r[5]!=null?r[5]:0}[f];}
 
 function passes(r){
   const q=r[6],g=r[7];
@@ -283,7 +283,7 @@ function onHover(info){
     document.getElementById('tt-agb').textContent=r[2].toFixed(1)+' Mg/ha';
     document.getElementById('tt-sd').textContent=r[3].toFixed(1)+' Mg/ha';
     document.getElementById('tt-n').textContent=r[4];
-    document.getElementById('tt-tc').textContent=r[5].toFixed(1)+'%';
+    document.getElementById('tt-tc').textContent=r[5]!=null?r[5].toFixed(1)+'%':'N/A';
     document.getElementById('tt-gez').textContent=gezN[r[7]]||r[7];
     document.getElementById('tt-fez').textContent=r[8];
     document.getElementById('tt-coords').textContent=r[1].toFixed(3)+'°, '+r[0].toFixed(3)+'°';
