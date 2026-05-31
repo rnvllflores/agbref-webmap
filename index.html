@@ -433,9 +433,9 @@ body{
     <h3>Epoch</h3>
     <div class="selector-row" id="epoch-selector">
       <button class="selector-btn" data-val="2005">2005</button>
-      <button class="selector-btn active" data-val="2010">2010</button>
+      <button class="selector-btn" data-val="2010">2010</button>
       <button class="selector-btn" data-val="2015">2015</button>
-      <button class="selector-btn" data-val="2020">2020</button>
+      <button class="selector-btn active" data-val="2020">2020</button>
     </div>
   </div>
 
@@ -444,8 +444,8 @@ body{
     <div class="selector-row" id="res-selector">
       <button class="selector-btn" data-val="500m">500m</button>
       <button class="selector-btn" data-val="1km">1 km</button>
-      <button class="selector-btn active" data-val="10km">10 km</button>
-      <button class="selector-btn" data-val="25km">25 km</button>
+      <button class="selector-btn" data-val="10km">10 km</button>
+      <button class="selector-btn active" data-val="25km">25 km</button>
     </div>
   </div>
 
@@ -514,7 +514,7 @@ body{
 
 <!-- Floating stats strip — shown when sidebar is collapsed -->
 <div id="stats-strip">
-  <div class="strip-meta" id="strip-meta">2010 · 10km</div>
+  <div class="strip-meta" id="strip-meta">2020 · 25km</div>
   <div class="strip-cell"><div class="strip-val" id="strip-count">—</div><div class="strip-label">Cells</div></div>
   <div class="strip-cell"><div class="strip-val" id="strip-mean">—</div><div class="strip-label">Mean AGB</div></div>
   <div class="strip-cell"><div class="strip-val" id="strip-sd">—</div><div class="strip-label">Mean SD</div></div>
@@ -555,8 +555,8 @@ const CFG = {
 
 // ─── State ───────────────────────────────────────────────────────────────
 const state = {
-  epoch:      '2010',
-  resolution: '10km',
+  epoch:      '2020',
+  resolution: '25km',
   colorBy:    'agb',
   filters:    { qmp:false, qto:false, qac:false, qlr:false, qst:false },
   biome:      'all',
