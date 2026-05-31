@@ -389,24 +389,6 @@ body{
   white-space:nowrap;
 }
 
-/* ─── Scope toggle badge (Global vs Viewport) ─── */
-.scope-badge{
-  display:inline-flex;align-items:center;gap:5px;
-  font-family:var(--mono);font-size:8.5px;
-  text-transform:uppercase;letter-spacing:.12em;
-  color:var(--text-muted);
-  padding:2px 7px;
-  border:1px solid var(--border);
-  border-radius:10px;
-  cursor:pointer;
-  transition:all .15s;
-  user-select:none;
-  vertical-align:middle;
-  margin-left:6px;
-}
-.scope-badge:hover{border-color:var(--accent);color:var(--accent)}
-.scope-badge.viewport{color:var(--accent);border-color:var(--accent);background:var(--accent-dim)}
-.scope-badge .dot{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0;}
 </style>
 </head>
 <body>
@@ -421,7 +403,7 @@ body{
   </div>
 
   <div class="panel-section">
-    <h3>Summary <span class="meta" id="summary-meta">—</span><span class="scope-badge" id="scope-toggle" title="Toggle between global and viewport stats"><span class="dot"></span><span id="scope-label">Global</span></span></h3>
+    <h3>Summary <span class="meta" id="summary-meta">—</span></h3>
     <div class="stats-row">
       <div class="stat-card"><div class="stat-val" id="stat-count">—</div><div class="stat-label">Cells</div></div>
       <div class="stat-card"><div class="stat-val" id="stat-mean">—</div><div class="stat-label">Mean AGB</div></div>
@@ -560,7 +542,6 @@ const state = {
   colorBy:    'agb',
   filters:    { qmp:false, qto:false, qac:false, qlr:false, qst:false },
   biome:      'all',
-  viewportMode: false,   // false = global stats, true = bbox-scoped stats
   duckdb:     null,
   duckdbConn: null,
 };
@@ -804,20 +785,12 @@ async function initDuckDB(){
   }
 }
 
-// Build a WHERE clause that mirrors the active map filter, including epoch.
-// When viewportMode is on, also clamp to the current map bbox.
 function whereClauseSQL(){
   const w = [`epoch = ${parseInt(state.epoch,10)}`];
   for (const flag of ['qmp','qto','qac','qlr','qst']){
     if (state.filters[flag]) w.push(`${flag} = TRUE`);
   }
   if (state.biome !== 'all') w.push(`gez = '${state.biome}'`);
-  if (state.viewportMode){
-    const b = map.getBounds();
-    const w0 = b.getWest().toFixed(6), e = b.getEast().toFixed(6);
-    const s  = b.getSouth().toFixed(6), n = b.getNorth().toFixed(6);
-    w.push(`lon BETWEEN ${w0} AND ${e}`, `lat BETWEEN ${s} AND ${n}`);
-  }
   return w.join(' AND ');
 }
 
@@ -826,7 +799,7 @@ function viewName(){ return 'agb_' + state.resolution.replace(/[^a-z0-9]/g,'_');
 // ─── Stats strip sync ────────────────────────────────────────────────────
 function syncStrip(count, mean, sd){
   document.getElementById('strip-meta').textContent =
-    `${state.epoch} · ${state.resolution}` + (state.viewportMode ? ' · view' : '');
+    `${state.epoch} · ${state.resolution}`;
   document.getElementById('strip-count').textContent = count;
   document.getElementById('strip-mean').textContent  = mean;
   document.getElementById('strip-sd').textContent    = sd;
@@ -840,9 +813,8 @@ function syncStrip(count, mean, sd){
 // Re-run the summary stats + biome breakdown via DuckDB.
 async function refreshAnalytics(){
   // Always update the summary meta line.
-  const scopeSuffix = state.viewportMode ? ' · viewport' : '';
   document.getElementById('summary-meta').textContent =
-    `${state.epoch} · ${state.resolution}${scopeSuffix}`;
+    `${state.epoch} · ${state.resolution}`;
 
   if (!state.duckdbConn) { refreshAnalyticsFromTiles(); return; }
   const view = viewName();
@@ -976,26 +948,6 @@ document.getElementById('sidebar-toggle').addEventListener('click', () => {
   document.getElementById('stats-strip').classList.toggle('visible', collapsed);
 });
 
-// ─── Scope toggle (Global ↔ Viewport) ────────────────────────────────────
-function updateScopeBadge(){
-  const badge = document.getElementById('scope-toggle');
-  const label = document.getElementById('scope-label');
-  badge.classList.toggle('viewport', state.viewportMode);
-  label.textContent = state.viewportMode ? 'Viewport' : 'Global';
-}
-document.getElementById('scope-toggle').addEventListener('click', () => {
-  state.viewportMode = !state.viewportMode;
-  updateScopeBadge();
-  refreshAnalytics();
-});
-
-// ─── Debounced moveend → refresh viewport stats ───────────────────────────
-let _moveTimer = null;
-map.on('moveend', () => {
-  if (!state.viewportMode) return;
-  clearTimeout(_moveTimer);
-  _moveTimer = setTimeout(refreshAnalytics, 400);
-});
 
 document.getElementById('cite-link').addEventListener('click', (e) => {
   e.preventDefault();
