@@ -336,6 +336,77 @@ body{
 .maplibregl-ctrl-group button{background-color:transparent !important}
 .maplibregl-ctrl-group button:hover{background-color:var(--bg-hover) !important}
 .maplibregl-ctrl-icon{filter:invert(.85) hue-rotate(80deg) saturate(.4)}
+
+/* ─── Floating stats strip (visible when sidebar is collapsed) ─── */
+#stats-strip{
+  position:absolute;bottom:40px;left:0;z-index:10;
+  display:flex;align-items:stretch;
+  background:var(--bg-panel);
+  backdrop-filter:blur(14px) saturate(1.2);
+  -webkit-backdrop-filter:blur(14px) saturate(1.2);
+  border:1px solid var(--border);
+  border-left:none;
+  border-radius:0 var(--radius) var(--radius) 0;
+  overflow:hidden;
+  pointer-events:none;
+  opacity:0;
+  transform:translateX(-8px);
+  transition:opacity .3s ease, transform .3s ease;
+}
+#stats-strip.visible{
+  opacity:1;
+  transform:translateX(0);
+  pointer-events:auto;
+}
+.strip-cell{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:10px 16px;
+  border-right:1px solid var(--border);
+  min-width:72px;
+}
+.strip-cell:last-child{border-right:none}
+.strip-val{
+  font-family:var(--serif);
+  font-size:17px;font-weight:500;
+  font-variation-settings:"opsz" 9;
+  color:var(--accent-bright);
+  line-height:1;letter-spacing:-.01em;
+  white-space:nowrap;
+}
+.strip-val.dim{color:var(--text-muted)}
+.strip-label{
+  font-family:var(--mono);
+  font-size:8.5px;color:var(--text-muted);
+  text-transform:uppercase;letter-spacing:.12em;
+  margin-top:5px;white-space:nowrap;
+}
+.strip-meta{
+  font-family:var(--mono);
+  font-size:9px;color:var(--accent);
+  text-transform:uppercase;letter-spacing:.1em;
+  padding:0 13px;display:flex;align-items:center;
+  border-right:1px solid var(--border);
+  white-space:nowrap;
+}
+
+/* ─── Scope toggle badge (Global vs Viewport) ─── */
+.scope-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  font-family:var(--mono);font-size:8.5px;
+  text-transform:uppercase;letter-spacing:.12em;
+  color:var(--text-muted);
+  padding:2px 7px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  cursor:pointer;
+  transition:all .15s;
+  user-select:none;
+  vertical-align:middle;
+  margin-left:6px;
+}
+.scope-badge:hover{border-color:var(--accent);color:var(--accent)}
+.scope-badge.viewport{color:var(--accent);border-color:var(--accent);background:var(--accent-dim)}
+.scope-badge .dot{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0;}
 </style>
 </head>
 <body>
@@ -350,7 +421,7 @@ body{
   </div>
 
   <div class="panel-section">
-    <h3>Summary <span class="meta" id="summary-meta">—</span></h3>
+    <h3>Summary <span class="meta" id="summary-meta">—</span><span class="scope-badge" id="scope-toggle" title="Toggle between global and viewport stats"><span class="dot"></span><span id="scope-label">Global</span></span></h3>
     <div class="stats-row">
       <div class="stat-card"><div class="stat-val" id="stat-count">—</div><div class="stat-label">Cells</div></div>
       <div class="stat-card"><div class="stat-val" id="stat-mean">—</div><div class="stat-label">Mean AGB</div></div>
@@ -441,6 +512,14 @@ body{
 </div>
 <button id="sidebar-toggle" title="Toggle sidebar">‹</button>
 
+<!-- Floating stats strip — shown when sidebar is collapsed -->
+<div id="stats-strip">
+  <div class="strip-meta" id="strip-meta">2010 · 10km</div>
+  <div class="strip-cell"><div class="strip-val" id="strip-count">—</div><div class="strip-label">Cells</div></div>
+  <div class="strip-cell"><div class="strip-val" id="strip-mean">—</div><div class="strip-label">Mean AGB</div></div>
+  <div class="strip-cell"><div class="strip-val" id="strip-sd">—</div><div class="strip-label">Mean SD</div></div>
+</div>
+
 <div id="legend">
   <h4 id="legend-title">AGB · Mg ha⁻¹</h4>
   <div class="legend-bar" id="legend-bar"></div>
@@ -481,8 +560,9 @@ const state = {
   colorBy:    'agb',
   filters:    { qmp:false, qto:false, qac:false, qlr:false, qst:false },
   biome:      'all',
-  duckdb:     null,   // AsyncDuckDB instance once initialised
-  duckdbConn: null,   // AsyncDuckDBConnection
+  viewportMode: false,   // false = global stats, true = bbox-scoped stats
+  duckdb:     null,
+  duckdbConn: null,
 };
 
 // ─── Color scales (Viridis / Inferno / Greens / Blues) ───────────────────
@@ -725,22 +805,44 @@ async function initDuckDB(){
 }
 
 // Build a WHERE clause that mirrors the active map filter, including epoch.
+// When viewportMode is on, also clamp to the current map bbox.
 function whereClauseSQL(){
   const w = [`epoch = ${parseInt(state.epoch,10)}`];
   for (const flag of ['qmp','qto','qac','qlr','qst']){
     if (state.filters[flag]) w.push(`${flag} = TRUE`);
   }
   if (state.biome !== 'all') w.push(`gez = '${state.biome}'`);
+  if (state.viewportMode){
+    const b = map.getBounds();
+    const w0 = b.getWest().toFixed(6), e = b.getEast().toFixed(6);
+    const s  = b.getSouth().toFixed(6), n = b.getNorth().toFixed(6);
+    w.push(`lon BETWEEN ${w0} AND ${e}`, `lat BETWEEN ${s} AND ${n}`);
+  }
   return w.join(' AND ');
 }
 
 function viewName(){ return 'agb_' + state.resolution.replace(/[^a-z0-9]/g,'_'); }
 
+// ─── Stats strip sync ────────────────────────────────────────────────────
+function syncStrip(count, mean, sd){
+  document.getElementById('strip-meta').textContent =
+    `${state.epoch} · ${state.resolution}` + (state.viewportMode ? ' · view' : '');
+  document.getElementById('strip-count').textContent = count;
+  document.getElementById('strip-mean').textContent  = mean;
+  document.getElementById('strip-sd').textContent    = sd;
+  const strip = document.getElementById('stats-strip');
+  // Values are dim when sidebar is open too, just hidden — keep them fresh
+  ['strip-count','strip-mean','strip-sd'].forEach(id => {
+    document.getElementById(id).classList.toggle('dim', count === '—');
+  });
+}
+
 // Re-run the summary stats + biome breakdown via DuckDB.
 async function refreshAnalytics(){
   // Always update the summary meta line.
+  const scopeSuffix = state.viewportMode ? ' · viewport' : '';
   document.getElementById('summary-meta').textContent =
-    `${state.epoch} · ${state.resolution}`;
+    `${state.epoch} · ${state.resolution}${scopeSuffix}`;
 
   if (!state.duckdbConn) { refreshAnalyticsFromTiles(); return; }
   const view = viewName();
@@ -755,18 +857,16 @@ async function refreshAnalytics(){
     );
     const row = sumResult.toArray()[0];
     const n = Number(row.n) || 0;
-    document.getElementById('stat-count').textContent = n.toLocaleString();
-    if (n > 0){
-      document.getElementById('stat-mean').textContent = (+row.mean_agb).toFixed(1);
-      document.getElementById('stat-mean').classList.remove('dim');
-      document.getElementById('stat-sd').textContent   = (+row.mean_sd).toFixed(1);
-      document.getElementById('stat-sd').classList.remove('dim');
-    } else {
-      document.getElementById('stat-mean').textContent = '—';
-      document.getElementById('stat-sd').textContent   = '—';
-      document.getElementById('stat-mean').classList.add('dim');
-      document.getElementById('stat-sd').classList.add('dim');
-    }
+    const countTxt = n.toLocaleString();
+    const meanTxt  = n > 0 ? (+row.mean_agb).toFixed(1) : '—';
+    const sdTxt    = n > 0 ? (+row.mean_sd).toFixed(1)  : '—';
+
+    document.getElementById('stat-count').textContent = countTxt;
+    document.getElementById('stat-mean').textContent  = meanTxt;
+    document.getElementById('stat-sd').textContent    = sdTxt;
+    document.getElementById('stat-mean').classList.toggle('dim', n === 0);
+    document.getElementById('stat-sd').classList.toggle('dim',   n === 0);
+    syncStrip(countTxt, meanTxt, sdTxt);
 
     // Biome breakdown
     const breakdownResult = await state.duckdbConn.query(
@@ -786,13 +886,18 @@ function refreshAnalyticsFromTiles(){
   if (!map.getLayer(LYR_ID)) return;
   const feats = map.queryRenderedFeatures({ layers:[LYR_ID] });
   const n = feats.length;
-  document.getElementById('stat-count').textContent = n.toLocaleString() + ' (visible)';
+  const countTxt = n.toLocaleString() + ' (vis)';
+  let meanTxt = '—', sdTxt = '—';
   if (n > 0){
     let sa=0, ss=0;
     for (const f of feats){ sa += +f.properties.agb; ss += +f.properties.sd; }
-    document.getElementById('stat-mean').textContent = (sa/n).toFixed(1);
-    document.getElementById('stat-sd').textContent   = (ss/n).toFixed(1);
+    meanTxt = (sa/n).toFixed(1);
+    sdTxt   = (ss/n).toFixed(1);
   }
+  document.getElementById('stat-count').textContent = countTxt;
+  document.getElementById('stat-mean').textContent  = meanTxt;
+  document.getElementById('stat-sd').textContent    = sdTxt;
+  syncStrip(countTxt, meanTxt, sdTxt);
 }
 
 function renderBreakdown(rows){
@@ -866,7 +971,30 @@ document.getElementById('biome-chips').addEventListener('click', (e) => {
 document.getElementById('sidebar-toggle').addEventListener('click', () => {
   const sb = document.getElementById('sidebar');
   sb.classList.toggle('collapsed');
-  document.getElementById('sidebar-toggle').textContent = sb.classList.contains('collapsed') ? '›' : '‹';
+  const collapsed = sb.classList.contains('collapsed');
+  document.getElementById('sidebar-toggle').textContent = collapsed ? '›' : '‹';
+  document.getElementById('stats-strip').classList.toggle('visible', collapsed);
+});
+
+// ─── Scope toggle (Global ↔ Viewport) ────────────────────────────────────
+function updateScopeBadge(){
+  const badge = document.getElementById('scope-toggle');
+  const label = document.getElementById('scope-label');
+  badge.classList.toggle('viewport', state.viewportMode);
+  label.textContent = state.viewportMode ? 'Viewport' : 'Global';
+}
+document.getElementById('scope-toggle').addEventListener('click', () => {
+  state.viewportMode = !state.viewportMode;
+  updateScopeBadge();
+  refreshAnalytics();
+});
+
+// ─── Debounced moveend → refresh viewport stats ───────────────────────────
+let _moveTimer = null;
+map.on('moveend', () => {
+  if (!state.viewportMode) return;
+  clearTimeout(_moveTimer);
+  _moveTimer = setTimeout(refreshAnalytics, 400);
 });
 
 document.getElementById('cite-link').addEventListener('click', (e) => {
