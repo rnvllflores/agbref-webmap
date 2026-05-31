@@ -964,10 +964,13 @@ document.getElementById('cite-link').addEventListener('click', (e) => {
 });
 
 // ─── Boot ────────────────────────────────────────────────────────────────
-map.on('load', () => {
+// Use styledata (same event as basemap-switch) so the AGBref layer is added
+// before MapLibre's render loop settles — identical to the working path.
+map.once('styledata', () => {
   addAgbrefLayer();
-  applyColor();
-  // Kick off DuckDB in the background; the map is usable immediately.
+  updateLegend();
+});
+map.on('load', () => {
   initDuckDB();
 });
 </script>
