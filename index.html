@@ -966,7 +966,7 @@ document.getElementById('cite-link').addEventListener('click', (e) => {
 // ─── Boot ────────────────────────────────────────────────────────────────
 map.on('load', () => {
   addAgbrefLayer();
-  updateLegend();
+  applyColor();
   // Kick off DuckDB in the background; the map is usable immediately.
   initDuckDB();
 });
