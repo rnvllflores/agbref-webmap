@@ -5,85 +5,359 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>AGBref — Global Forest Biomass Reference Dataset</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.js"></script>
-<link href="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.css" rel="stylesheet" />
-<script src="https://unpkg.com/deck.gl@9.0.16/dist.min.js"></script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!-- MapLibre GL JS -->
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+
+<!-- PMTiles plugin: registers the pmtiles:// protocol on MapLibre -->
+<script src="https://unpkg.com/pmtiles@3.2.1/dist/pmtiles.js"></script>
+
 <style>
-:root{--bg:#0c1117;--bg-panel:#141b24;--bg-card:#1a232e;--bg-hover:#212c3a;--border:#2a3544;--text:#e2e8f0;--text-dim:#8899aa;--text-muted:#556677;--accent:#22c55e;--accent-dim:#166534;--accent-glow:rgba(34,197,94,0.15);--radius:8px;--mono:'JetBrains Mono',monospace;--sans:'DM Sans',system-ui,sans-serif}
+:root{
+  --bg:#0a0e0c;
+  --bg-panel:#10171395;
+  --bg-panel-solid:#0e1411;
+  --bg-card:#16201bcc;
+  --bg-hover:#1c2a23;
+  --border:#22332b;
+  --border-strong:#2e463b;
+  --text:#e6efe9;
+  --text-dim:#8aa295;
+  --text-muted:#5a7068;
+  --accent:#7fdb9a;
+  --accent-bright:#a4f0b8;
+  --accent-dim:#1f3a2a;
+  --accent-glow:rgba(127,219,154,.18);
+  --danger:#f08a8a;
+  --radius:6px;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+  --serif:'Fraunces',Georgia,serif;
+}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:var(--sans);background:var(--bg);color:var(--text);overflow:hidden;height:100vh;width:100vw}
-#map{position:absolute;inset:0;z-index:0}
-#sidebar{position:absolute;top:0;left:0;bottom:0;width:320px;background:var(--bg-panel);border-right:1px solid var(--border);z-index:10;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:transform .3s cubic-bezier(.4,0,.2,1)}
-#sidebar.collapsed{transform:translateX(-320px)}
-#sidebar-toggle{position:absolute;top:12px;left:320px;z-index:11;width:36px;height:36px;background:var(--bg-panel);border:1px solid var(--border);border-left:none;border-radius:0 var(--radius) var(--radius) 0;color:var(--text-dim);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:left .3s cubic-bezier(.4,0,.2,1),background .15s}
+html,body{height:100%;width:100%}
+body{
+  font-family:var(--sans);
+  background:var(--bg);
+  color:var(--text);
+  overflow:hidden;
+  font-size:13.5px;
+  font-weight:400;
+  letter-spacing:.01em;
+  -webkit-font-smoothing:antialiased;
+}
+
+#map{position:absolute;inset:0;z-index:0;background:#0a0e0c}
+.maplibregl-ctrl-attrib{background:rgba(10,14,12,.7) !important;color:var(--text-muted) !important}
+.maplibregl-ctrl-attrib a{color:var(--text-dim) !important}
+
+/* ─── Sidebar ─── */
+#sidebar{
+  position:absolute;top:0;left:0;bottom:0;width:340px;
+  background:var(--bg-panel);
+  backdrop-filter:blur(14px) saturate(1.2);
+  -webkit-backdrop-filter:blur(14px) saturate(1.2);
+  border-right:1px solid var(--border);
+  z-index:10;
+  display:flex;flex-direction:column;
+  overflow-y:auto;overflow-x:hidden;
+  transition:transform .35s cubic-bezier(.4,0,.2,1);
+}
+#sidebar.collapsed{transform:translateX(-340px)}
+#sidebar-toggle{
+  position:absolute;top:14px;left:340px;z-index:11;
+  width:34px;height:34px;
+  background:var(--bg-panel-solid);
+  border:1px solid var(--border);border-left:none;
+  border-radius:0 var(--radius) var(--radius) 0;
+  color:var(--text-dim);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;
+  transition:left .35s cubic-bezier(.4,0,.2,1),background .15s;
+}
 #sidebar-toggle:hover{background:var(--bg-hover);color:var(--text)}
 #sidebar.collapsed~#sidebar-toggle{left:0}
-.panel-header{padding:20px 20px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
-.panel-header h1{font-size:22px;font-weight:700;letter-spacing:-.5px;display:flex;align-items:center;gap:8px}
-.panel-header h1 .dot{width:8px;height:8px;background:var(--accent);border-radius:50%;box-shadow:0 0 8px var(--accent)}
-.panel-header p{font-size:12.5px;color:var(--text-dim);margin-top:4px;line-height:1.5}
-.panel-section{padding:16px 20px;border-bottom:1px solid var(--border)}
-.panel-section h3{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-muted);margin-bottom:10px}
-.selector-row{display:flex;gap:4px}
-.selector-btn{flex:1;padding:8px 4px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-dim);font-family:var(--mono);font-size:12px;font-weight:500;cursor:pointer;text-align:center;transition:all .15s}
-.selector-btn:hover{background:var(--bg-hover);color:var(--text)}
-.selector-btn.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);box-shadow:0 0 12px var(--accent-glow)}
-.filter-item{display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;user-select:none}
+
+.panel-header{padding:22px 22px 18px;border-bottom:1px solid var(--border);flex-shrink:0;position:relative}
+.panel-header::after{
+  content:'';position:absolute;left:22px;bottom:-1px;
+  width:30px;height:1px;background:var(--accent);
+}
+.panel-header h1{
+  font-family:var(--serif);
+  font-size:32px;font-weight:500;
+  letter-spacing:-.02em;
+  font-variation-settings:"opsz" 144;
+  line-height:1;
+  color:var(--text);
+}
+.panel-header h1 .em{color:var(--accent);font-style:italic;font-weight:400}
+.panel-header .sub{
+  font-family:var(--mono);
+  font-size:10px;font-weight:500;
+  letter-spacing:.18em;text-transform:uppercase;
+  color:var(--accent);
+  margin-bottom:10px;
+  display:flex;align-items:center;gap:7px;
+}
+.panel-header .sub .pulse{
+  width:5px;height:5px;background:var(--accent);border-radius:50%;
+  box-shadow:0 0 0 0 var(--accent);
+  animation:pulse 2s infinite;
+}
+@keyframes pulse{
+  0%{box-shadow:0 0 0 0 rgba(127,219,154,.5)}
+  70%{box-shadow:0 0 0 6px rgba(127,219,154,0)}
+  100%{box-shadow:0 0 0 0 rgba(127,219,154,0)}
+}
+.panel-header p{
+  font-size:12.5px;color:var(--text-dim);
+  margin-top:8px;line-height:1.55;
+  max-width:36ch;
+}
+
+.panel-section{padding:16px 22px;border-bottom:1px solid var(--border)}
+.panel-section h3{
+  font-family:var(--mono);
+  font-size:9.5px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.16em;
+  color:var(--text-muted);margin-bottom:11px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.panel-section h3 .meta{
+  font-weight:400;
+  text-transform:none;
+  letter-spacing:.05em;
+  color:var(--text-muted);
+}
+
+.selector-row{display:flex;gap:3px}
+.selector-btn{
+  flex:1;padding:8px 4px;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  color:var(--text-dim);
+  font-family:var(--mono);
+  font-size:11.5px;font-weight:500;
+  cursor:pointer;text-align:center;
+  transition:all .15s;
+}
+.selector-btn:hover{background:var(--bg-hover);color:var(--text);border-color:var(--border-strong)}
+.selector-btn.active{
+  background:var(--accent-dim);
+  border-color:var(--accent);
+  color:var(--accent-bright);
+  box-shadow:0 0 12px var(--accent-glow), inset 0 0 0 1px rgba(127,219,154,.15);
+}
+
+.filter-item{
+  display:flex;align-items:flex-start;gap:11px;
+  padding:9px 0;cursor:pointer;user-select:none;
+}
 .filter-item:hover .filter-label{color:var(--text)}
-.filter-toggle{width:36px;height:20px;background:var(--bg);border:1px solid var(--border);border-radius:10px;position:relative;flex-shrink:0;transition:all .2s}
-.filter-toggle::after{content:'';position:absolute;width:14px;height:14px;background:var(--text-dim);border-radius:50%;top:2px;left:2px;transition:all .2s}
+.filter-toggle{
+  width:34px;height:18px;
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:9px;position:relative;flex-shrink:0;
+  transition:all .2s;margin-top:1px;
+}
+.filter-toggle::after{
+  content:'';position:absolute;
+  width:12px;height:12px;
+  background:var(--text-muted);border-radius:50%;
+  top:2px;left:2px;
+  transition:all .2s cubic-bezier(.4,0,.2,1);
+}
 .filter-item.active .filter-toggle{background:var(--accent-dim);border-color:var(--accent)}
-.filter-item.active .filter-toggle::after{background:var(--accent);transform:translateX(16px)}
-.filter-label{font-size:13px;color:var(--text-dim);transition:color .15s;line-height:1.3}
+.filter-item.active .filter-toggle::after{background:var(--accent);transform:translateX(15px);box-shadow:0 0 6px var(--accent-glow)}
+.filter-label{font-size:13px;color:var(--text-dim);transition:color .15s;line-height:1.25}
 .filter-item.active .filter-label{color:var(--text)}
-.filter-desc{font-size:11px;color:var(--text-muted);margin-top:1px}
-.stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
-.stat-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center}
-.stat-val{font-family:var(--mono);font-size:16px;font-weight:600;color:var(--accent)}
-.stat-label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.filter-desc{font-size:10.5px;color:var(--text-muted);margin-top:2px;font-family:var(--mono)}
+
+.stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}
+.stat-card{
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:12px 8px 10px;
+  text-align:center;
+  position:relative;
+}
+.stat-val{
+  font-family:var(--serif);
+  font-size:21px;font-weight:500;
+  font-variation-settings:"opsz" 9;
+  color:var(--accent-bright);
+  line-height:1;
+  letter-spacing:-.01em;
+}
+.stat-val.dim{color:var(--text-muted)}
+.stat-label{
+  font-family:var(--mono);
+  font-size:9px;color:var(--text-muted);
+  text-transform:uppercase;letter-spacing:.12em;
+  margin-top:6px;
+}
+.stat-unit{
+  font-family:var(--mono);
+  font-size:9.5px;color:var(--text-muted);
+  margin-left:2px;font-weight:400;
+}
+
 .biome-chips{display:flex;flex-wrap:wrap;gap:4px}
-.biome-chip{padding:5px 10px;background:var(--bg-card);border:1px solid var(--border);border-radius:20px;font-size:11px;color:var(--text-dim);cursor:pointer;transition:all .15s}
+.biome-chip{
+  padding:5px 11px;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:20px;
+  font-size:11px;color:var(--text-dim);
+  font-family:var(--mono);
+  cursor:pointer;transition:all .15s;
+}
 .biome-chip:hover{background:var(--bg-hover);color:var(--text)}
-.biome-chip.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
-#legend{position:absolute;top:16px;right:16px;z-index:10;background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;min-width:200px}
-#legend h4{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);margin-bottom:8px}
-.legend-bar{height:14px;border-radius:3px;margin-bottom:4px}
-.legend-labels{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--text-dim)}
-#loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:100;background:var(--bg-panel);border:1px solid var(--border);border-radius:12px;padding:24px 36px;text-align:center;display:none}
-#loading.show{display:block}
-#loading .spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
-@keyframes spin{to{transform:rotate(360deg)}}
-#loading p{font-size:13px;color:var(--text-dim)}
-#tooltip{position:absolute;z-index:20;background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;pointer-events:none;display:none;font-size:12px;min-width:220px;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.biome-chip.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent-bright)}
+
+/* ─── Legend ─── */
+#legend{
+  position:absolute;top:18px;right:18px;z-index:10;
+  background:var(--bg-panel);
+  backdrop-filter:blur(14px) saturate(1.2);
+  -webkit-backdrop-filter:blur(14px) saturate(1.2);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:14px 18px;min-width:220px;
+}
+#legend h4{
+  font-family:var(--mono);
+  font-size:9.5px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.16em;
+  color:var(--text-muted);margin-bottom:10px;
+}
+.legend-bar{height:12px;border-radius:2px;margin-bottom:5px}
+.legend-labels{
+  display:flex;justify-content:space-between;
+  font-family:var(--mono);font-size:10px;color:var(--text-dim);
+}
+
+/* ─── Tooltip ─── */
+#tooltip{
+  position:absolute;z-index:20;
+  background:var(--bg-panel-solid);
+  border:1px solid var(--border-strong);
+  border-radius:var(--radius);
+  padding:13px 16px;
+  pointer-events:none;display:none;
+  font-size:12px;min-width:230px;
+  box-shadow:0 14px 40px rgba(0,0,0,.5),0 0 0 1px rgba(127,219,154,.06);
+}
 #tooltip.show{display:block}
-.tt-row{display:flex;justify-content:space-between;gap:16px;padding:2px 0}
-.tt-key{color:var(--text-muted)}.tt-val{font-family:var(--mono);font-weight:500;color:var(--text)}
-.tt-divider{border:none;border-top:1px solid var(--border);margin:6px 0}
-.panel-footer{padding:16px 20px;flex-shrink:0}
-.panel-footer a{display:inline-flex;align-items:center;gap:6px;color:var(--text-dim);text-decoration:none;font-size:12px;transition:color .15s}
-.panel-footer a:hover{color:var(--accent)}
-.panel-footer a+a{margin-left:14px}
-#sidebar::-webkit-scrollbar{width:4px}
+.tt-row{display:flex;justify-content:space-between;gap:18px;padding:2px 0;align-items:baseline}
+.tt-key{color:var(--text-muted);font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em}
+.tt-val{font-family:var(--mono);font-weight:500;color:var(--text);font-size:12px}
+.tt-val.hi{color:var(--accent-bright)}
+.tt-divider{border:none;border-top:1px solid var(--border);margin:7px 0}
+.tt-fez{font-family:var(--mono);color:var(--text-dim);font-size:11px;line-height:1.4;margin-top:2px;text-align:right}
+
+/* ─── Loading ─── */
+#loading{
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);z-index:100;
+  background:var(--bg-panel-solid);
+  border:1px solid var(--border-strong);
+  border-radius:10px;
+  padding:24px 38px;text-align:center;
+  display:none;
+}
+#loading.show{display:block}
+#loading .spinner{
+  width:28px;height:28px;
+  border:2px solid var(--border);
+  border-top-color:var(--accent);
+  border-radius:50%;
+  animation:spin .8s linear infinite;
+  margin:0 auto 14px;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loading p{font-size:12px;color:var(--text-dim);font-family:var(--mono)}
+
+/* ─── DB status pill (top of analytics panel) ─── */
+.db-status{
+  display:inline-flex;align-items:center;gap:6px;
+  font-family:var(--mono);font-size:9.5px;
+  text-transform:uppercase;letter-spacing:.12em;
+  color:var(--text-muted);
+}
+.db-status .dot{
+  width:6px;height:6px;border-radius:50%;
+  background:var(--text-muted);
+}
+.db-status.ready .dot{background:var(--accent);box-shadow:0 0 6px var(--accent-glow)}
+.db-status.error .dot{background:var(--danger)}
+
+/* ─── Analytics breakdown rows ─── */
+.breakdown{display:flex;flex-direction:column;gap:5px;margin-top:4px}
+.breakdown-row{
+  display:grid;grid-template-columns:60px 1fr 60px;
+  align-items:center;gap:10px;
+  font-size:11.5px;font-family:var(--mono);
+}
+.breakdown-key{color:var(--text-dim)}
+.breakdown-bar{height:6px;background:var(--bg-card);border-radius:1.5px;overflow:hidden;position:relative}
+.breakdown-bar-fill{
+  height:100%;background:linear-gradient(90deg,var(--accent-dim),var(--accent));
+  border-radius:1.5px;
+  transition:width .4s cubic-bezier(.4,0,.2,1);
+}
+.breakdown-val{color:var(--accent-bright);text-align:right;font-weight:500}
+
+/* ─── Footer ─── */
+.panel-footer{padding:18px 22px 22px;flex-shrink:0}
+.panel-footer .row{display:flex;gap:14px;flex-wrap:wrap}
+.panel-footer a{
+  display:inline-flex;align-items:center;gap:6px;
+  color:var(--text-dim);text-decoration:none;
+  font-size:11.5px;font-family:var(--mono);
+  transition:color .15s;
+}
+.panel-footer a:hover{color:var(--accent-bright)}
+
+/* ─── Scrollbar ─── */
+#sidebar::-webkit-scrollbar{width:3px}
 #sidebar::-webkit-scrollbar-track{background:transparent}
-#sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+#sidebar::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:2px}
+#sidebar::-webkit-scrollbar-thumb:hover{background:var(--accent-dim)}
+
+/* MapLibre controls dark theme */
+.maplibregl-ctrl-group{background:var(--bg-panel-solid) !important;border:1px solid var(--border) !important}
+.maplibregl-ctrl-group button{background-color:transparent !important}
+.maplibregl-ctrl-group button:hover{background-color:var(--bg-hover) !important}
+.maplibregl-ctrl-icon{filter:invert(.85) hue-rotate(80deg) saturate(.4)}
 </style>
 </head>
 <body>
+
 <div id="map"></div>
+
 <div id="sidebar">
   <div class="panel-header">
-    <h1><span class="dot"></span>AGBref</h1>
-    <p>Global reference dataset of above-ground forest biomass from NFIs, research plots &amp; airborne LiDAR — for map validation across epochs and resolutions.</p>
+    <div class="sub"><span class="pulse"></span>Global biomass reference</div>
+    <h1>AGB<span class="em">ref</span></h1>
+    <p>A reference dataset of above-ground forest biomass from National Forest Inventories, research plots and airborne LiDAR — built for map validation across epochs and resolutions.</p>
   </div>
+
   <div class="panel-section">
-    <h3>Summary</h3>
+    <h3>Summary <span class="meta" id="summary-meta">—</span></h3>
     <div class="stats-row">
-      <div class="stat-card"><div class="stat-val" id="stat-count">—</div><div class="stat-label">Grid cells</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-count">—</div><div class="stat-label">Cells</div></div>
       <div class="stat-card"><div class="stat-val" id="stat-mean">—</div><div class="stat-label">Mean AGB</div></div>
       <div class="stat-card"><div class="stat-val" id="stat-sd">—</div><div class="stat-label">Mean SD</div></div>
     </div>
   </div>
+
   <div class="panel-section">
     <h3>Epoch</h3>
     <div class="selector-row" id="epoch-selector">
@@ -93,6 +367,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);overflow:hid
       <button class="selector-btn" data-val="2020">2020</button>
     </div>
   </div>
+
   <div class="panel-section">
     <h3>Resolution</h3>
     <div class="selector-row" id="res-selector">
@@ -102,23 +377,26 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);overflow:hid
       <button class="selector-btn" data-val="25km">25 km</button>
     </div>
   </div>
+
   <div class="panel-section">
     <h3>Color by</h3>
     <div class="selector-row" id="color-selector">
       <button class="selector-btn active" data-val="agb">AGB</button>
       <button class="selector-btn" data-val="sd">SD</button>
-      <button class="selector-btn" data-val="tc">Tree Cover</button>
+      <button class="selector-btn" data-val="tc">Tree cover</button>
       <button class="selector-btn" data-val="n">Plots</button>
     </div>
   </div>
+
   <div class="panel-section">
-    <h3>Quality Filters</h3>
-    <div class="filter-item" data-flag="min_plots"><div class="filter-toggle"></div><div><div class="filter-label">Minimum plots</div><div class="filter-desc">&gt;1 (500m/1km) · &gt;4 (10km) · &gt;5 (25km)</div></div></div>
-    <div class="filter-item" data-flag="timeliness"><div class="filter-toggle"></div><div><div class="filter-label">Timeliness</div><div class="filter-desc">Plots within ±3 years of epoch</div></div></div>
-    <div class="filter-item" data-flag="area_covered"><div class="filter-toggle"></div><div><div class="filter-label">Area covered</div><div class="filter-desc">High cumulative plot area (≥75th pctl)</div></div></div>
-    <div class="filter-item" data-flag="local_rep"><div class="filter-toggle"></div><div><div class="filter-label">Local representativity</div><div class="filter-desc">Plot tree cover within 90% CI of grid cell</div></div></div>
-    <div class="filter-item" data-flag="strict"><div class="filter-toggle"></div><div><div class="filter-label">Strict filter</div><div class="filter-desc">All four criteria combined</div></div></div>
+    <h3>Quality filters</h3>
+    <div class="filter-item" data-flag="qmp"><div class="filter-toggle"></div><div><div class="filter-label">Minimum plots</div><div class="filter-desc">&gt;1 (500m/1km) · &gt;4 (10km) · &gt;5 (25km)</div></div></div>
+    <div class="filter-item" data-flag="qto"><div class="filter-toggle"></div><div><div class="filter-label">Timeliness</div><div class="filter-desc">Plots within ±3 yr of epoch</div></div></div>
+    <div class="filter-item" data-flag="qac"><div class="filter-toggle"></div><div><div class="filter-label">Area covered</div><div class="filter-desc">Cumulative plot area ≥ 75th pctl</div></div></div>
+    <div class="filter-item" data-flag="qlr"><div class="filter-toggle"></div><div><div class="filter-label">Local representativity</div><div class="filter-desc">Plot TC within 90% CI of grid cell</div></div></div>
+    <div class="filter-item" data-flag="qst"><div class="filter-toggle"></div><div><div class="filter-label">Strict filter</div><div class="filter-desc">All four criteria combined</div></div></div>
   </div>
+
   <div class="panel-section">
     <h3>Biome</h3>
     <div class="biome-chips" id="biome-chips">
@@ -129,6 +407,14 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);overflow:hid
       <div class="biome-chip" data-gez="B">Boreal</div>
     </div>
   </div>
+
+  <div class="panel-section">
+    <h3>Analytics <span class="db-status" id="db-status"><span class="dot"></span><span id="db-label">DuckDB loading…</span></span></h3>
+    <div class="breakdown" id="biome-breakdown">
+      <div style="font-size:11px;color:var(--text-muted);font-family:var(--mono);padding:6px 0">Mean AGB by biome (current filter)</div>
+    </div>
+  </div>
+
   <div class="panel-section">
     <h3>Basemap</h3>
     <div class="selector-row" id="basemap-selector">
@@ -138,217 +424,469 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);overflow:hid
       <button class="selector-btn" data-val="topo">Topo</button>
     </div>
   </div>
+
   <div class="panel-footer">
-    <a href="https://zenodo.org/records/15495069" target="_blank">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15,3 21,3 21,9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Zenodo</a>
-    <a href="https://github.com/arnanaraza/Plot2Map" target="_blank">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22"/></svg>GitHub</a>
-    <a href="#" id="cite-link">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>Cite</a>
+    <div class="row">
+      <a href="https://zenodo.org/records/15495069" target="_blank" rel="noopener">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15,3 21,3 21,9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Zenodo
+      </a>
+      <a href="https://github.com/arnanaraza/Plot2Map" target="_blank" rel="noopener">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22"/></svg>GitHub
+      </a>
+      <a href="#" id="cite-link">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>Cite
+      </a>
+    </div>
   </div>
 </div>
-<button id="sidebar-toggle">☰</button>
+<button id="sidebar-toggle" title="Toggle sidebar">‹</button>
+
 <div id="legend">
-  <h4 id="legend-title">AGB (Mg ha⁻¹)</h4>
+  <h4 id="legend-title">AGB · Mg ha⁻¹</h4>
   <div class="legend-bar" id="legend-bar"></div>
   <div class="legend-labels"><span id="legend-min">0</span><span id="legend-max">400+</span></div>
 </div>
+
 <div id="tooltip">
-  <div class="tt-row"><span class="tt-key">AGB</span><span class="tt-val" id="tt-agb"></span></div>
+  <div class="tt-row"><span class="tt-key">AGB</span><span class="tt-val hi" id="tt-agb"></span></div>
   <div class="tt-row"><span class="tt-key">SD</span><span class="tt-val" id="tt-sd"></span></div>
   <hr class="tt-divider">
   <div class="tt-row"><span class="tt-key">Plots</span><span class="tt-val" id="tt-n"></span></div>
   <div class="tt-row"><span class="tt-key">Tree cover</span><span class="tt-val" id="tt-tc"></span></div>
   <div class="tt-row"><span class="tt-key">Biome</span><span class="tt-val" id="tt-gez"></span></div>
-  <div class="tt-row"><span class="tt-key">Eco-zone</span><span class="tt-val" id="tt-fez"></span></div>
+  <div class="tt-fez" id="tt-fez"></div>
   <hr class="tt-divider">
   <div class="tt-row"><span class="tt-key">Coords</span><span class="tt-val" id="tt-coords"></span></div>
 </div>
-<div id="loading"><div class="spinner"></div><p>Loading data…</p></div>
 
+<div id="loading"><div class="spinner"></div><p>Loading tiles…</p></div>
+
+<!-- ════════════════════════════════════════════════════════════
+     APPLICATION SCRIPT
+     ──────────────────────────────────────────────────────────── -->
 <script>
-const state={epoch:'2010',resolution:'10km',colorBy:'agb',filters:{min_plots:false,timeliness:false,area_covered:false,local_rep:false,strict:false},biome:'all',data:null,filteredData:null};
-const dataCache={};
+'use strict';
 
-const VIRIDIS=[[68,1,84],[72,36,117],[65,68,135],[53,95,141],[42,120,142],[33,145,140],[34,168,132],[68,191,112],[122,209,81],[189,223,38],[253,231,37]];
-const INFERNO=[[0,0,4],[40,11,84],[101,0,110],[159,15,92],[210,52,55],[237,105,37],[251,164,27],[252,225,56],[252,255,164]];
-const GREENS=[[247,252,245],[199,233,192],[161,217,155],[116,196,118],[49,163,84],[0,109,44]];
-const BLUES=[[247,251,255],[198,219,239],[107,174,214],[33,113,181],[8,48,107]];
-
-function getColorScale(n){
-  switch(n){
-    case'agb':return{scale:VIRIDIS,min:0,max:400,label:'AGB (Mg ha⁻¹)'};
-    case'sd':return{scale:INFERNO,min:0,max:200,label:'SD (Mg ha⁻¹)'};
-    case'tc':return{scale:GREENS,min:0,max:100,label:'Tree Cover (%)'};
-    case'n':return{scale:BLUES,min:1,max:50,label:'Number of Plots'};
-  }
-}
-
-function lerp(val,min,max,scale){
-  const t=Math.max(0,Math.min(1,(val-min)/(max-min)));
-  const idx=t*(scale.length-1),lo=Math.floor(idx),hi=Math.min(lo+1,scale.length-1),f=idx-lo;
-  return[Math.round(scale[lo][0]+f*(scale[hi][0]-scale[lo][0])),Math.round(scale[lo][1]+f*(scale[hi][1]-scale[lo][1])),Math.round(scale[lo][2]+f*(scale[hi][2]-scale[lo][2])),200];
-}
-
-function gradCSS(s){return'linear-gradient(90deg,'+s.map((c,i)=>`rgb(${c}) ${(i/(s.length-1)*100).toFixed(0)}%`).join(',')+')';}
-
-const BASEMAPS={
-  dark:{sources:{'base-tiles':{type:'raster',tiles:['https://a.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}@2x.png'],tileSize:256,attribution:'&copy; CARTO'}},layers:[{id:'base',type:'raster',source:'base-tiles',minzoom:0,maxzoom:19}]},
-  light:{sources:{'base-tiles':{type:'raster',tiles:['https://a.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}@2x.png'],tileSize:256,attribution:'&copy; CARTO'}},layers:[{id:'base',type:'raster',source:'base-tiles',minzoom:0,maxzoom:19}]},
-  satellite:{sources:{'base-tiles':{type:'raster',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],tileSize:256,attribution:'&copy; Esri'}},layers:[{id:'base',type:'raster',source:'base-tiles',minzoom:0,maxzoom:19}]},
-  topo:{sources:{'base-tiles':{type:'raster',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}'],tileSize:256,attribution:'&copy; Esri'}},layers:[{id:'base',type:'raster',source:'base-tiles',minzoom:0,maxzoom:19}]}
+// ─── Config ──────────────────────────────────────────────────────────────
+const CFG = {
+  pmtilesBase: 'data/pmtiles',      // <base>/agbref_<epoch>_<res>.pmtiles
+  parquetBase: 'data/parquet',      // <base>/agbref_<res>.parquet (per-resolution, all epochs)
+  layerName:   'agbref',            // source-layer inside every PMTiles
 };
 
-function makeStyle(name){
-  const b=BASEMAPS[name];
-  return{version:8,sources:b.sources,layers:b.layers};
+// ─── State ───────────────────────────────────────────────────────────────
+const state = {
+  epoch:      '2010',
+  resolution: '10km',
+  colorBy:    'agb',
+  filters:    { qmp:false, qto:false, qac:false, qlr:false, qst:false },
+  biome:      'all',
+  duckdb:     null,   // AsyncDuckDB instance once initialised
+  duckdbConn: null,   // AsyncDuckDBConnection
+};
+
+// ─── Color scales (Viridis / Inferno / Greens / Blues) ───────────────────
+const SCALES = {
+  agb: { label:'AGB · Mg ha⁻¹',     min:0, max:400, stops:[[68,1,84],[72,36,117],[65,68,135],[53,95,141],[42,120,142],[33,145,140],[34,168,132],[68,191,112],[122,209,81],[189,223,38],[253,231,37]] },
+  sd:  { label:'SD · Mg ha⁻¹',      min:0, max:200, stops:[[0,0,4],[40,11,84],[101,0,110],[159,15,92],[210,52,55],[237,105,37],[251,164,27],[252,225,56],[252,255,164]] },
+  tc:  { label:'Tree cover · %',    min:0, max:100, stops:[[247,252,245],[199,233,192],[161,217,155],[116,196,118],[49,163,84],[0,109,44]] },
+  n:   { label:'Plots in cell',     min:1, max:50,  stops:[[247,251,255],[198,219,239],[107,174,214],[33,113,181],[8,48,107]] },
+};
+
+function rgbCss(c){ return `rgb(${c[0]},${c[1]},${c[2]})`; }
+
+// Build a MapLibre `interpolate` expression for the active "color by" field.
+function colorExpression(field){
+  const s = SCALES[field];
+  const expr = ['interpolate', ['linear'], ['get', field]];
+  for (let i = 0; i < s.stops.length; i++){
+    const t = i / (s.stops.length - 1);
+    const v = s.min + t * (s.max - s.min);
+    expr.push(v, rgbCss(s.stops[i]));
+  }
+  return expr;
 }
 
-const map=new maplibregl.Map({
+// CSS gradient for the legend bar.
+function legendGradient(field){
+  const s = SCALES[field];
+  return 'linear-gradient(90deg,' + s.stops.map((c,i) =>
+    `${rgbCss(c)} ${(i / (s.stops.length - 1) * 100).toFixed(0)}%`
+  ).join(',') + ')';
+}
+
+// Build a MapLibre filter expression from the active quality flags + biome.
+function buildFilter(){
+  const f = ['all'];
+  for (const flag of ['qmp','qto','qac','qlr','qst']){
+    if (state.filters[flag]) f.push(['==', ['get', flag], 1]);
+  }
+  if (state.biome !== 'all') f.push(['==', ['get', 'gez'], state.biome]);
+  return f.length === 1 ? null : f;   // null = "no filter"
+}
+
+// Circle radius scales with zoom; we use bigger base radius for coarser resolutions.
+function radiusExpression(res){
+  // [baseAtZ2, growthPerZoom]
+  const cfg = { '500m':[1.0,1.15], '1km':[1.3,1.20], '10km':[2.2,1.30], '25km':[3.6,1.35] }[res];
+  return [
+    'interpolate', ['exponential', cfg[1]], ['zoom'],
+    0,  cfg[0] * 0.6,
+    2,  cfg[0],
+    5,  cfg[0] * 2.5,
+    8,  cfg[0] * 6,
+    12, cfg[0] * 14,
+  ];
+}
+
+// ─── Basemaps ────────────────────────────────────────────────────────────
+const BASEMAPS = {
+  dark:      'https://a.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}@2x.png',
+  light:     'https://a.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}@2x.png',
+  satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  topo:      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+};
+
+function buildStyle(basemapKey){
+  return {
+    version: 8,
+    glyphs:  'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
+    sources: {
+      'base': {
+        type:'raster', tiles:[BASEMAPS[basemapKey]], tileSize:256,
+        attribution:'&copy; CARTO, Esri · Data: AGBref (Araza et al.)'
+      }
+    },
+    layers: [{ id:'base', type:'raster', source:'base', minzoom:0, maxzoom:19 }],
+  };
+}
+
+// ─── Register PMTiles protocol ───────────────────────────────────────────
+const pmtilesProtocol = new pmtiles.Protocol();
+maplibregl.addProtocol('pmtiles', pmtilesProtocol.tile);
+
+// ─── Build the AGBref vector source descriptor for the current epoch/res ─
+function agbrefSource(){
+  const url = `${CFG.pmtilesBase}/agbref_${state.epoch}_${state.resolution}.pmtiles`;
+  return { type:'vector', url:`pmtiles://${url}`, attribution:'AGBref' };
+}
+
+// ─── Initialise map ──────────────────────────────────────────────────────
+const map = new maplibregl.Map({
   container:'map',
-  style:makeStyle('dark'),
-  center:[10,20],zoom:2,maxZoom:18,attributionControl:false
+  style: buildStyle('dark'),
+  center:[10, 20], zoom:2,
+  minZoom:0, maxZoom:12,
+  attributionControl:false,
+  hash: true,
 });
-map.addControl(new maplibregl.NavigationControl(),'bottom-right');
-map.addControl(new maplibregl.AttributionControl({compact:true}),'bottom-left');
+map.addControl(new maplibregl.NavigationControl({showCompass:false}), 'bottom-right');
+map.addControl(new maplibregl.AttributionControl({compact:true}), 'bottom-left');
 
-function switchBasemap(name){
-  map.setStyle(makeStyle(name));
-  map.once('style.load',()=>{
-    // Re-add deck overlay after style change
-    if(deckOverlay){map.removeControl(deckOverlay);deckOverlay=null;}
-    updateDeck();
+// ─── Layer + source plumbing ─────────────────────────────────────────────
+const SRC_ID = 'agbref-src';
+const LYR_ID = 'agbref-lyr';
+
+function addAgbrefLayer(){
+  if (map.getSource(SRC_ID)) return;     // already there
+  map.addSource(SRC_ID, agbrefSource());
+  map.addLayer({
+    id: LYR_ID,
+    type: 'circle',
+    source: SRC_ID,
+    'source-layer': CFG.layerName,
+    paint: {
+      'circle-color': colorExpression(state.colorBy),
+      'circle-radius': radiusExpression(state.resolution),
+      'circle-opacity': 0.85,
+      'circle-stroke-color': 'rgba(0,0,0,0.5)',
+      'circle-stroke-width': 0.4,
+    },
+    filter: buildFilter() || ['==', 1, 1],
   });
 }
 
-let deckOverlay=null;
-
-function ptRadius(){return{500:300,'1km':600,'10km':5500,'25km':13000}[state.resolution]||5500;}
-function getVal(r,f){return{agb:r[2],sd:r[3],n:r[4],tc:r[5]!=null?r[5]:0}[f];}
-
-function passes(r){
-  const q=r[6],g=r[7];
-  if(state.biome!=='all'&&g!==state.biome)return false;
-  if(state.filters.min_plots&&!(q&1))return false;
-  if(state.filters.timeliness&&!(q&2))return false;
-  if(state.filters.area_covered&&!(q&4))return false;
-  if(state.filters.local_rep&&!(q&8))return false;
-  if(state.filters.strict&&!(q&16))return false;
-  return true;
+// Replace the source when epoch/resolution changes. MapLibre requires
+// re-adding the source rather than swapping its URL in place.
+async function swapAgbrefSource(){
+  loadingShow();
+  try {
+    if (map.getLayer(LYR_ID)) map.removeLayer(LYR_ID);
+    if (map.getSource(SRC_ID)) map.removeSource(SRC_ID);
+    addAgbrefLayer();
+  } finally {
+    // Hide loading when the new tiles paint, OR after a short timeout
+    let hidden = false;
+    const hide = () => { if(!hidden){ hidden = true; loadingHide(); } };
+    map.once('idle', hide);
+    setTimeout(hide, 3500);
+  }
+  refreshAnalytics();
 }
 
-function updateDeck(){
-  if(!state.data)return;
-  const filtered=state.data.rows.filter(passes);
-  state.filteredData=filtered;
-  const cs=getColorScale(state.colorBy);
-  const layer=new deck.ScatterplotLayer({
-    id:'pts',data:filtered,
-    getPosition:d=>[d[0],d[1]],
-    getRadius:ptRadius(),
-    getFillColor:d=>lerp(getVal(d,state.colorBy),cs.min,cs.max,cs.scale),
-    radiusMinPixels:1.5,radiusMaxPixels:40,
-    pickable:true,onHover:onHover,
-    updateTriggers:{getFillColor:[state.colorBy],getRadius:[state.resolution]},
-    transitions:{getFillColor:300}
-  });
-  if(deckOverlay){deckOverlay.setProps({layers:[layer]})}
-  else{deckOverlay=new deck.MapboxOverlay({layers:[layer]});map.addControl(deckOverlay)}
-  updateStats(filtered);updateLegend();
+function applyFilter(){
+  if (map.getLayer(LYR_ID)){
+    map.setFilter(LYR_ID, buildFilter() || ['==', 1, 1]);
+  }
+  refreshAnalytics();
 }
 
-function updateStats(d){
-  const n=d.length;
-  document.getElementById('stat-count').textContent=n.toLocaleString();
-  if(!n){document.getElementById('stat-mean').textContent='—';document.getElementById('stat-sd').textContent='—';return}
-  let sa=0,ss=0;for(const r of d){sa+=r[2];ss+=r[3]}
-  document.getElementById('stat-mean').textContent=(sa/n).toFixed(1);
-  document.getElementById('stat-sd').textContent=(ss/n).toFixed(1);
+function applyColor(){
+  if (map.getLayer(LYR_ID)){
+    map.setPaintProperty(LYR_ID, 'circle-color', colorExpression(state.colorBy));
+  }
+  updateLegend();
 }
 
 function updateLegend(){
-  const cs=getColorScale(state.colorBy);
-  document.getElementById('legend-title').textContent=cs.label;
-  document.getElementById('legend-bar').style.background=gradCSS(cs.scale);
-  document.getElementById('legend-min').textContent=cs.min;
-  document.getElementById('legend-max').textContent=cs.max+'+';
+  const s = SCALES[state.colorBy];
+  document.getElementById('legend-title').textContent = s.label;
+  document.getElementById('legend-bar').style.background = legendGradient(state.colorBy);
+  document.getElementById('legend-min').textContent = s.min;
+  document.getElementById('legend-max').textContent = s.max + '+';
 }
 
-const tooltip=document.getElementById('tooltip');
-const gezN={B:'Boreal',S:'Subtropical',T:'Temperate',R:'Tropical',U:'Unknown'};
-function onHover(info){
-  if(info.object){
-    const r=info.object;tooltip.classList.add('show');
-    tooltip.style.left=(info.x+16)+'px';tooltip.style.top=(info.y-16)+'px';
-    document.getElementById('tt-agb').textContent=r[2].toFixed(1)+' Mg/ha';
-    document.getElementById('tt-sd').textContent=r[3].toFixed(1)+' Mg/ha';
-    document.getElementById('tt-n').textContent=r[4];
-    document.getElementById('tt-tc').textContent=r[5]!=null?r[5].toFixed(1)+'%':'N/A';
-    document.getElementById('tt-gez').textContent=gezN[r[7]]||r[7];
-    document.getElementById('tt-fez').textContent=r[8];
-    document.getElementById('tt-coords').textContent=r[1].toFixed(3)+'°, '+r[0].toFixed(3)+'°';
-  }else{tooltip.classList.remove('show')}
+// ─── Tooltip via queryRenderedFeatures ───────────────────────────────────
+const tooltip = document.getElementById('tooltip');
+const GEZ_NAMES = { B:'Boreal', S:'Subtropical', T:'Temperate', R:'Tropical' };
+
+map.on('mousemove', LYR_ID, (e) => {
+  if (!e.features || !e.features.length) { tooltip.classList.remove('show'); return; }
+  const f = e.features[0];
+  const p = f.properties;
+  // Coords come from the feature geometry directly (it's a point in lon/lat).
+  const [lon, lat] = f.geometry.coordinates;
+  tooltip.classList.add('show');
+  // Keep tooltip on screen
+  const x = Math.min(e.point.x + 16, window.innerWidth  - 260);
+  const y = Math.max(e.point.y - 16, 10);
+  tooltip.style.left = x + 'px';
+  tooltip.style.top  = y + 'px';
+  document.getElementById('tt-agb').textContent = (+p.agb).toFixed(1) + ' Mg/ha';
+  document.getElementById('tt-sd').textContent  = (+p.sd).toFixed(1)  + ' Mg/ha';
+  document.getElementById('tt-n').textContent   = p.n;
+  document.getElementById('tt-tc').textContent  = (p.tc != null && p.tc !== '') ? (+p.tc).toFixed(1) + '%' : 'n/a';
+  document.getElementById('tt-gez').textContent = GEZ_NAMES[p.gez] || p.gez;
+  document.getElementById('tt-fez').textContent = p.fez || '';
+  document.getElementById('tt-coords').textContent = lat.toFixed(3) + '°, ' + lon.toFixed(3) + '°';
+});
+map.on('mouseleave', LYR_ID, () => tooltip.classList.remove('show'));
+map.on('mousemove', () => { map.getCanvas().style.cursor = ''; });
+map.on('mouseenter', LYR_ID, () => { map.getCanvas().style.cursor = 'crosshair'; });
+
+// ─── Loading overlay ─────────────────────────────────────────────────────
+function loadingShow(){ document.getElementById('loading').classList.add('show'); }
+function loadingHide(){ document.getElementById('loading').classList.remove('show'); }
+
+// ─── DuckDB-WASM (analytics) ─────────────────────────────────────────────
+async function initDuckDB(){
+  const setStatus = (cls, txt) => {
+    const el = document.getElementById('db-status');
+    el.className = 'db-status ' + cls;
+    document.getElementById('db-label').textContent = txt;
+  };
+  try {
+    // Pull the ESM bundle from jsDelivr.
+    const duckdb = await import('https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/+esm');
+    const JSDELIVR = duckdb.getJsDelivrBundles();
+    const bundle = await duckdb.selectBundle(JSDELIVR);
+
+    // Worker has to be loaded as a Blob (avoids CORS).
+    const workerUrl = URL.createObjectURL(
+      new Blob([`importScripts("${bundle.mainWorker}");`], { type: 'text/javascript' })
+    );
+    const worker = new Worker(workerUrl);
+    const logger = new duckdb.ConsoleLogger();
+    const db = new duckdb.AsyncDuckDB(logger, worker);
+    await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+    URL.revokeObjectURL(workerUrl);
+
+    const conn = await db.connect();
+    state.duckdb = db;
+    state.duckdbConn = conn;
+
+    // Register the four resolution-scoped Parquets as remote views.
+    // DuckDB will fetch only the row groups it needs via HTTP Range.
+    const origin = location.origin + location.pathname.replace(/\/[^/]*$/, '/');
+    for (const res of ['500m','1km','10km','25km']){
+      const url = origin + `${CFG.parquetBase}/agbref_${res}.parquet`;
+      // Use parquet_scan with the full URL.
+      await conn.query(`CREATE OR REPLACE VIEW agb_${res.replace(/[^a-z0-9]/g,'_')} AS
+                        SELECT * FROM read_parquet('${url}')`);
+    }
+    setStatus('ready', 'DuckDB ready');
+    refreshAnalytics();
+  } catch (err) {
+    console.error('DuckDB init failed:', err);
+    setStatus('error', 'DuckDB unavailable');
+    // Fall back to in-tile stats.
+    refreshAnalyticsFromTiles();
+  }
 }
 
-async function loadData(){
-  const key=`${state.epoch}_${state.resolution}`;
-  if(dataCache[key]){state.data=dataCache[key];updateDeck();return}
-  const ld=document.getElementById('loading');ld.classList.add('show');
-  try{const r=await fetch(`data/${key}.json`);const j=await r.json();dataCache[key]=j;state.data=j;updateDeck()}
-  catch(e){console.error(e);alert('Failed to load: data/'+key+'.json')}
-  finally{ld.classList.remove('show')}
+// Build a WHERE clause that mirrors the active map filter, including epoch.
+function whereClauseSQL(){
+  const w = [`epoch = ${parseInt(state.epoch,10)}`];
+  for (const flag of ['qmp','qto','qac','qlr','qst']){
+    if (state.filters[flag]) w.push(`${flag} = TRUE`);
+  }
+  if (state.biome !== 'all') w.push(`gez = '${state.biome}'`);
+  return w.join(' AND ');
 }
 
-function wire(id,key,cb){
-  document.getElementById(id).addEventListener('click',e=>{
-    const b=e.target.closest('.selector-btn');if(!b)return;
-    e.currentTarget.querySelectorAll('.selector-btn').forEach(x=>x.classList.remove('active'));
-    b.classList.add('active');state[key]=b.dataset.val;cb();
+function viewName(){ return 'agb_' + state.resolution.replace(/[^a-z0-9]/g,'_'); }
+
+// Re-run the summary stats + biome breakdown via DuckDB.
+async function refreshAnalytics(){
+  // Always update the summary meta line.
+  document.getElementById('summary-meta').textContent =
+    `${state.epoch} · ${state.resolution}`;
+
+  if (!state.duckdbConn) { refreshAnalyticsFromTiles(); return; }
+  const view = viewName();
+  const where = whereClauseSQL();
+
+  try {
+    const sumResult = await state.duckdbConn.query(
+      `SELECT COUNT(*)::INTEGER AS n,
+              AVG(agb)::DOUBLE AS mean_agb,
+              AVG(sd)::DOUBLE  AS mean_sd
+         FROM ${view} WHERE ${where}`
+    );
+    const row = sumResult.toArray()[0];
+    const n = Number(row.n) || 0;
+    document.getElementById('stat-count').textContent = n.toLocaleString();
+    if (n > 0){
+      document.getElementById('stat-mean').textContent = (+row.mean_agb).toFixed(1);
+      document.getElementById('stat-mean').classList.remove('dim');
+      document.getElementById('stat-sd').textContent   = (+row.mean_sd).toFixed(1);
+      document.getElementById('stat-sd').classList.remove('dim');
+    } else {
+      document.getElementById('stat-mean').textContent = '—';
+      document.getElementById('stat-sd').textContent   = '—';
+      document.getElementById('stat-mean').classList.add('dim');
+      document.getElementById('stat-sd').classList.add('dim');
+    }
+
+    // Biome breakdown
+    const breakdownResult = await state.duckdbConn.query(
+      `SELECT gez, COUNT(*)::INTEGER AS n, AVG(agb)::DOUBLE AS mean_agb
+         FROM ${view} WHERE ${where}
+        GROUP BY gez
+        ORDER BY mean_agb DESC NULLS LAST`
+    );
+    renderBreakdown(breakdownResult.toArray());
+  } catch (err) {
+    console.error('DuckDB query failed:', err);
+  }
+}
+
+// Fallback if DuckDB is unavailable: stats from currently-rendered features.
+function refreshAnalyticsFromTiles(){
+  if (!map.getLayer(LYR_ID)) return;
+  const feats = map.queryRenderedFeatures({ layers:[LYR_ID] });
+  const n = feats.length;
+  document.getElementById('stat-count').textContent = n.toLocaleString() + ' (visible)';
+  if (n > 0){
+    let sa=0, ss=0;
+    for (const f of feats){ sa += +f.properties.agb; ss += +f.properties.sd; }
+    document.getElementById('stat-mean').textContent = (sa/n).toFixed(1);
+    document.getElementById('stat-sd').textContent   = (ss/n).toFixed(1);
+  }
+}
+
+function renderBreakdown(rows){
+  const el = document.getElementById('biome-breakdown');
+  el.innerHTML = '<div style="font-size:10.5px;color:var(--text-muted);font-family:var(--mono);padding:2px 0 6px">MEAN AGB BY BIOME · CURRENT FILTER</div>';
+  if (!rows.length){
+    el.innerHTML += '<div style="font-size:11px;color:var(--text-muted);padding:4px 0">No data in current selection.</div>';
+    return;
+  }
+  const max = Math.max(...rows.map(r => +r.mean_agb || 0));
+  for (const r of rows){
+    const name = GEZ_NAMES[r.gez] || r.gez;
+    const v = +r.mean_agb || 0;
+    const pct = max ? (v / max * 100) : 0;
+    const row = document.createElement('div');
+    row.className = 'breakdown-row';
+    row.innerHTML =
+      `<div class="breakdown-key">${name}</div>` +
+      `<div class="breakdown-bar"><div class="breakdown-bar-fill" style="width:${pct.toFixed(1)}%"></div></div>` +
+      `<div class="breakdown-val">${v.toFixed(0)}</div>`;
+    el.appendChild(row);
+  }
+}
+
+// ─── UI wiring ───────────────────────────────────────────────────────────
+function wireSelector(id, key, cb){
+  document.getElementById(id).addEventListener('click', (e) => {
+    const b = e.target.closest('.selector-btn'); if (!b) return;
+    e.currentTarget.querySelectorAll('.selector-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    state[key] = b.dataset.val;
+    cb();
   });
 }
-wire('epoch-selector','epoch',loadData);
-wire('res-selector','resolution',loadData);
-wire('color-selector','colorBy',updateDeck);
+wireSelector('epoch-selector',    'epoch',      swapAgbrefSource);
+wireSelector('res-selector',      'resolution', swapAgbrefSource);
+wireSelector('color-selector',    'colorBy',    applyColor);
 
-document.getElementById('basemap-selector').addEventListener('click',e=>{
-  const b=e.target.closest('.selector-btn');if(!b)return;
-  e.currentTarget.querySelectorAll('.selector-btn').forEach(x=>x.classList.remove('active'));
-  b.classList.add('active');switchBasemap(b.dataset.val);
+document.getElementById('basemap-selector').addEventListener('click', (e) => {
+  const b = e.target.closest('.selector-btn'); if (!b) return;
+  e.currentTarget.querySelectorAll('.selector-btn').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  map.setStyle(buildStyle(b.dataset.val));
+  map.once('styledata', () => { addAgbrefLayer(); applyColor(); });
 });
 
-document.querySelectorAll('.filter-item').forEach(item=>{
-  item.addEventListener('click',()=>{
-    const f=item.dataset.flag;state.filters[f]=!state.filters[f];item.classList.toggle('active');
-    if(f==='strict'&&state.filters.strict){
-      ['min_plots','timeliness','area_covered','local_rep'].forEach(k=>{
-        state.filters[k]=true;
+document.querySelectorAll('.filter-item').forEach((item) => {
+  item.addEventListener('click', () => {
+    const f = item.dataset.flag;
+    state.filters[f] = !state.filters[f];
+    item.classList.toggle('active');
+    // Strict implies all four other flags.
+    if (f === 'qst' && state.filters.qst){
+      ['qmp','qto','qac','qlr'].forEach(k => {
+        state.filters[k] = true;
         document.querySelector(`.filter-item[data-flag="${k}"]`).classList.add('active');
       });
     }
-    updateDeck();
+    applyFilter();
   });
 });
 
-document.getElementById('biome-chips').addEventListener('click',e=>{
-  const c=e.target.closest('.biome-chip');if(!c)return;
-  document.querySelectorAll('.biome-chip').forEach(x=>x.classList.remove('active'));
-  c.classList.add('active');state.biome=c.dataset.gez;updateDeck();
+document.getElementById('biome-chips').addEventListener('click', (e) => {
+  const c = e.target.closest('.biome-chip'); if (!c) return;
+  document.querySelectorAll('.biome-chip').forEach(x => x.classList.remove('active'));
+  c.classList.add('active');
+  state.biome = c.dataset.gez;
+  applyFilter();
 });
 
-document.getElementById('sidebar-toggle').addEventListener('click',()=>{
-  document.getElementById('sidebar').classList.toggle('collapsed');
+document.getElementById('sidebar-toggle').addEventListener('click', () => {
+  const sb = document.getElementById('sidebar');
+  sb.classList.toggle('collapsed');
+  document.getElementById('sidebar-toggle').textContent = sb.classList.contains('collapsed') ? '›' : '‹';
 });
 
-document.getElementById('cite-link').addEventListener('click',e=>{
+document.getElementById('cite-link').addEventListener('click', (e) => {
   e.preventDefault();
-  navigator.clipboard.writeText('Araza, A., Herold, M., Avitabile, V., et al. (2025). AGBref: A global reference dataset of above-ground forest biomass. Zenodo. https://zenodo.org/records/15495069').then(()=>{
-    const el=e.target.closest('a');const o=el.innerHTML;
-    el.innerHTML='<span style="color:var(--accent)">✓ Copied</span>';
-    setTimeout(()=>el.innerHTML=o,2000);
+  const txt = 'Araza, A., Herold, M., Avitabile, V., et al. (2025). AGBref: A global reference dataset of above-ground forest biomass. Zenodo. https://zenodo.org/records/15495069';
+  navigator.clipboard.writeText(txt).then(() => {
+    const el = e.target.closest('a');
+    const o = el.innerHTML;
+    el.innerHTML = '<span style="color:var(--accent-bright)">✓ Copied</span>';
+    setTimeout(() => el.innerHTML = o, 1800);
   });
 });
 
-map.on('load',()=>loadData());
+// ─── Boot ────────────────────────────────────────────────────────────────
+map.on('load', () => {
+  addAgbrefLayer();
+  updateLegend();
+  // Kick off DuckDB in the background; the map is usable immediately.
+  initDuckDB();
+});
 </script>
 </body>
 </html>
