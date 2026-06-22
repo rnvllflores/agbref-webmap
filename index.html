@@ -682,7 +682,7 @@ function addAgbrefLayer(){
       'circle-stroke-color': 'rgba(0,0,0,0.5)',
       'circle-stroke-width': 0.4,
     },
-    filter: buildFilter() || ['==', 1, 1],
+    filter: buildFilter() || true,
   });
 }
 
@@ -706,7 +706,7 @@ async function swapAgbrefSource(){
 
 function applyFilter(){
   if (map.getLayer(LYR_ID)){
-    map.setFilter(LYR_ID, buildFilter() || ['==', 1, 1]);
+    map.setFilter(LYR_ID, buildFilter());
   }
   refreshAnalytics();
 }
