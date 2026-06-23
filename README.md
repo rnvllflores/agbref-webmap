@@ -58,16 +58,26 @@ AGBref is a global AGB reference dataset derived from National Forest Inventorie
 - "Color by" is a `circle-color` paint expression with `interpolate` stops — no JS recompute
 - DuckDB-WASM runs SQL against `read_parquet('https://…/agbref_<res>.parquet')`; the HTTP server only sees range requests for the row groups DuckDB actually needs
 
-## Build the data (one-time, from source CSVs)
+## Build the data (from source CSVs)
+
+A single self-contained script regenerates every Parquet + PMTiles artefact from a
+folder of `AGBref_<year>_<res>.csv` files. It needs only two command-line tools —
+no Python, no pip:
 
 ```bash
-pip install duckdb pyarrow
-# Install tippecanoe: https://github.com/felt/tippecanoe#installation
-# (Ubuntu: apt install tippecanoe ; macOS: brew install tippecanoe)
+# 1. Install the tools
+#    macOS:          brew install tippecanoe duckdb
+#    conda (any OS):  conda install -c conda-forge tippecanoe python-duckdb
+#    Linux (manual):  duckdb -> https://github.com/duckdb/duckdb/releases
+#                     tippecanoe -> build from https://github.com/felt/tippecanoe
 
-# Put the 16 AGBref_<year>_<res>.csv files into data/csv/
-./build.sh
+# 2. Build (point it at any folder of AGBref CSVs)
+./build_webmap_data.sh /path/to/csv_folder
 ```
+
+The script writes into `data/parquet/` and `data/pmtiles/` next to it (override with a
+second argument: `./build_webmap_data.sh <csv_dir> <output_root>`). Stray files that
+don't match `AGBref_<year>_<res>.csv` (e.g. a combined `AGBref__.csv`) are skipped.
 
 Output:
 - `data/parquet/agbref_{500m,1km,10km,25km}.parquet` — one per resolution, all epochs in one file
@@ -78,7 +88,7 @@ Output:
 
 ```bash
 git init
-git add index.html data/ build.sh build/ README.md
+git add index.html data/ build_webmap_data.sh README.md
 git commit -m "AGBref webmap with PMTiles + DuckDB-WASM"
 git branch -M main
 git remote add origin https://github.com/YOUR_USERNAME/agbref-webmap.git
