@@ -6,7 +6,7 @@ Rendered with **MapLibre GL + PMTiles** for vector tiles, with **DuckDB-WASM** f
 
 ## About AGBref
 
-AGBref is a global AGB reference dataset derived from National Forest Inventories (NFIs), permanent research plots, and local AGB maps from airborne LiDAR. It provides biomass estimates for multiple epochs (2005, 2010, 2015, 2020) at various spatial resolutions (500 m, 1 km, 10 km, 25 km), with uncertainty estimates and quality flags.
+AGBref is a global AGB reference dataset derived from National Forest Inventories (NFIs), permanent research plots, and local AGB maps from airborne LiDAR. It provides biomass estimates for multiple epochs (2005, 2010, 2015, 2020, 2025) at various spatial resolutions (500 m, 1 km, 10 km, 25 km), with uncertainty estimates and quality flags.
 
 **Paper**: Araza, A., Herold, M., Avitabile, V., et al. *AGBref: A global reference dataset of above-ground forest biomass.*
 **Data**: [Zenodo](https://zenodo.org/records/15495069) · **Code**: [Plot2Map](https://github.com/arnanaraza/Plot2Map)
@@ -24,7 +24,7 @@ AGBref is a global AGB reference dataset derived from National Forest Inventorie
 
 ## Features
 
-- **Epoch selection**: 2005 / 2010 / 2015 / 2020
+- **Epoch selection**: 2005 / 2010 / 2015 / 2020 / 2025
 - **Resolution selection**: 500 m, 1 km, 10 km, 25 km grid cells
 - **Color by**: AGB, SD, Tree Cover, or Number of Plots (Viridis / Inferno / Greens / Blues)
 - **Quality filters**: Minimum plots, Timeliness, Area covered, Local representativity, Strict
@@ -118,7 +118,7 @@ Then: **Settings → Pages → Source** → `main` branch, root `/`.
 | qac   | BOOLEAN  | QUALITY_LARGE_SIZE (Area covered, ≥75th pctl plot area)   |
 | qlr   | BOOLEAN  | QUALITY_LOCALLY_REP (plot TC within 90% CI of grid cell)  |
 | qst   | BOOLEAN  | QUALITY_STRICT_FILTER (all four above combined)           |
-| epoch | INT16    | 2005 / 2010 / 2015 / 2020                                 |
+| epoch | INT16    | 2005 / 2010 / 2015 / 2020 / 2025                          |
 
 Row-group size: 50,000. Compression: ZSTD.
 

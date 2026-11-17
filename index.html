@@ -435,7 +435,8 @@ body{
       <button class="selector-btn" data-val="2005">2005</button>
       <button class="selector-btn" data-val="2010">2010</button>
       <button class="selector-btn" data-val="2015">2015</button>
-      <button class="selector-btn active" data-val="2020">2020</button>
+      <button class="selector-btn" data-val="2020">2020</button>
+      <button class="selector-btn active" data-val="2025">2025</button>
     </div>
   </div>
 
@@ -514,7 +515,7 @@ body{
 
 <!-- Floating stats strip — shown when sidebar is collapsed -->
 <div id="stats-strip">
-  <div class="strip-meta" id="strip-meta">2020 · 500m</div>
+  <div class="strip-meta" id="strip-meta">2025 · 500m</div>
   <div class="strip-cell"><div class="strip-val" id="strip-count">—</div><div class="strip-label">Cells</div></div>
   <div class="strip-cell"><div class="strip-val" id="strip-mean">—</div><div class="strip-label">Mean AGB</div></div>
   <div class="strip-cell"><div class="strip-val" id="strip-sd">—</div><div class="strip-label">Mean SD</div></div>
@@ -555,7 +556,7 @@ const CFG = {
 
 // ─── State ───────────────────────────────────────────────────────────────
 const state = {
-  epoch:      '2020',
+  epoch:      '2025',
   resolution: '500m',
   colorBy:    'agb',
   filters:    { qmp:false, qto:false, qac:false, qlr:false, qst:false },
